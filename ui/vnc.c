@@ -2799,6 +2799,7 @@ static void vnc_connect(VncDisplay *vd, int csock,
     VNC_DEBUG("New client on socket %d\n", csock);
     update_displaychangelistener(&vd->dcl, VNC_REFRESH_INTERVAL_BASE);
     qemu_set_nonblock(vs->csock);
+    socket_set_nodelay(vs->csock);
 #ifdef CONFIG_VNC_WS
     if (websocket) {
         vs->websocket = 1;
