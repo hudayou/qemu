@@ -438,12 +438,12 @@ static void vnc_dpy_update(DisplayChangeListener *dcl,
 
     h += y;
 
-    /* round x down to ensure the loop only spans one 16-pixel block per,
-       iteration.  otherwise, if (x % 16) != 0, the last iteration may span
-       two 16-pixel blocks but we only mark the first as dirty
+    /* round x down to ensure the loop only spans one VNC_BLOCK_ZIE pixel block per,
+       iteration.  otherwise, if (x % VNC_BLOCK_SIZE) != 0, the last iteration may span
+       two VNC_BLOCK_SIZE pixel blocks but we only mark the first as dirty
     */
-    w += (x % 16);
-    x -= (x % 16);
+    w += (x % VNC_BLOCK_SIZE);
+    x -= (x % VNC_BLOCK_SIZE);
 
     x = MIN(x, width);
     y = MIN(y, height);
@@ -451,8 +451,8 @@ static void vnc_dpy_update(DisplayChangeListener *dcl,
     h = MIN(h, height);
 
     for (; y < h; y++)
-        for (i = 0; i < w; i += 16)
-            set_bit((x + i) / 16, s->dirty[y]);
+        for (i = 0; i < w; i += VNC_BLOCK_SIZE)
+            set_bit((x + i) / VNC_BLOCK_SIZE, s->dirty[y]);
 }
 
 void vnc_framebuffer_update(VncState *vs, int x, int y, int w, int h,
@@ -769,11 +769,11 @@ static void vnc_dpy_copy(DisplayChangeListener *dcl,
         y = dst_y + h - 1;
         inc = -1;
     }
-    w_lim = w - (16 - (dst_x % 16));
+    w_lim = w - (VNC_BLOCK_SIZE - (dst_x % VNC_BLOCK_SIZE));
     if (w_lim < 0)
         w_lim = w;
     else
-        w_lim = w - (w_lim % 16);
+        w_lim = w - (w_lim % VNC_BLOCK_SIZE);
     for (i = 0; i < h; i++) {
         for (x = 0; x <= w_lim;
                 x += s, src_row += cmp_bytes, dst_row += cmp_bytes) {
@@ -781,10 +781,10 @@ static void vnc_dpy_copy(DisplayChangeListener *dcl,
                 if ((s = w - w_lim) == 0)
                     break;
             } else if (!x) {
-                s = (16 - (dst_x % 16));
+                s = (VNC_BLOCK_SIZE - (dst_x % VNC_BLOCK_SIZE));
                 s = MIN(s, w_lim);
             } else {
-                s = 16;
+                s = VNC_BLOCK_SIZE;
             }
             cmp_bytes = s * VNC_SERVER_FB_BYTES;
             if (memcmp(src_row, dst_row, cmp_bytes) == 0)
@@ -792,7 +792,7 @@ static void vnc_dpy_copy(DisplayChangeListener *dcl,
             memmove(dst_row, src_row, cmp_bytes);
             QTAILQ_FOREACH(vs, &vd->clients, next) {
                 if (!vnc_has_feature(vs, VNC_FEATURE_COPYRECT)) {
-                    set_bit(((x + dst_x) / 16), vs->dirty[y]);
+                    set_bit(((x + dst_x) / VNC_BLOCK_SIZE), vs->dirty[y]);
                 }
             }
         }
@@ -911,7 +911,7 @@ static int vnc_update_client(VncState *vs, int has_dirty)
         for (y = 0; y < height; y++) {
             int x;
             int last_x = -1;
-            for (x = 0; x < width / 16; x++) {
+            for (x = 0; x < width / VNC_BLOCK_SIZE; x++) {
                 if (test_and_clear_bit(x, vs->dirty[y])) {
                     if (last_x == -1) {
                         last_x = x;
@@ -921,16 +921,16 @@ static int vnc_update_client(VncState *vs, int has_dirty)
                         int h = find_and_clear_dirty_height(vs, y, last_x, x,
                                                             height);
 
-                        n += vnc_job_add_rect(job, last_x * 16, y,
-                                              (x - last_x) * 16, h);
+                        n += vnc_job_add_rect(job, last_x * VNC_BLOCK_SIZE, y,
+                                              (x - last_x) * VNC_BLOCK_SIZE, h);
                     }
                     last_x = -1;
                 }
             }
             if (last_x != -1) {
                 int h = find_and_clear_dirty_height(vs, y, last_x, x, height);
-                n += vnc_job_add_rect(job, last_x * 16, y,
-                                      (x - last_x) * 16, h);
+                n += vnc_job_add_rect(job, last_x * VNC_BLOCK_SIZE, y,
+                                      (x - last_x) * VNC_BLOCK_SIZE, h);
             }
         }
 
@@ -1861,7 +1861,7 @@ static void framebuffer_update_request(VncState *vs, int incremental,
                                        int w, int h)
 {
     int i;
-    const size_t width = surface_width(vs->vd->ds) / 16;
+    const size_t width = surface_width(vs->vd->ds) / VNC_BLOCK_SIZE;
     const size_t height = surface_height(vs->vd->ds);
 
     if (y_position > height) {
@@ -2563,7 +2563,9 @@ static int vnc_refresh_lossy_rect(VncDisplay *vd, int x, int y)
 
         vs->lossy_rect[sty][stx] = 0;
         for (j = 0; j < VNC_STAT_RECT; ++j) {
-            bitmap_set(vs->dirty[y + j], x / 16, VNC_STAT_RECT / 16);
+            bitmap_set(vs->dirty[y + j],
+                       x / VNC_BLOCK_SIZE,
+                       VNC_STAT_RECT / VNC_BLOCK_SIZE);
         }
         has_dirty++;
     }
@@ -2666,6 +2668,7 @@ static int vnc_refresh_server_surface(VncDisplay *vd)
 {
     int width = pixman_image_get_width(vd->guest.fb);
     int height = pixman_image_get_height(vd->guest.fb);
+    int bpp = (PIXMAN_FORMAT_BPP(vd->guest.format) + 7) / 8;
     int y;
     uint8_t *guest_row;
     uint8_t *server_row;
@@ -2686,7 +2689,7 @@ static int vnc_refresh_server_surface(VncDisplay *vd)
      * Check and copy modified bits from guest to server surface.
      * Update server dirty map.
      */
-    cmp_bytes = 64;
+    cmp_bytes = VNC_BLOCK_SIZE * bpp;
     if (cmp_bytes > vnc_server_fb_stride(vd)) {
         cmp_bytes = vnc_server_fb_stride(vd);
     }
@@ -2710,9 +2713,9 @@ static int vnc_refresh_server_surface(VncDisplay *vd)
             }
             server_ptr = server_row;
 
-            for (x = 0; x + 15 < width;
-                    x += 16, guest_ptr += cmp_bytes, server_ptr += cmp_bytes) {
-                if (!test_and_clear_bit((x / 16), vd->guest.dirty[y]))
+            for (x = 0; x + VNC_BLOCK_SIZE - 1 < width;
+                    x += VNC_BLOCK_SIZE, guest_ptr += cmp_bytes, server_ptr += cmp_bytes) {
+                if (!test_and_clear_bit((x / VNC_BLOCK_SIZE), vd->guest.dirty[y]))
                     continue;
                 if (memcmp(server_ptr, guest_ptr, cmp_bytes) == 0)
                     continue;
@@ -2720,7 +2723,7 @@ static int vnc_refresh_server_surface(VncDisplay *vd)
                 if (!vd->non_adaptive)
                     vnc_rect_updated(vd, x, y, &tv);
                 QTAILQ_FOREACH(vs, &vd->clients, next) {
-                    set_bit((x / 16), vs->dirty[y]);
+                    set_bit((x / VNC_BLOCK_SIZE), vs->dirty[y]);
                 }
                 has_dirty++;
             }

@@ -81,8 +81,10 @@ typedef void VncSendHextileTile(VncState *vs,
 #define VNC_MAX_WIDTH 2560
 #define VNC_MAX_HEIGHT 2048
 
+#define VNC_BLOCK_SIZE 64
+
 /* VNC_DIRTY_BITS is the number of bits in the dirty bitmap. */
-#define VNC_DIRTY_BITS (VNC_MAX_WIDTH / 16)
+#define VNC_DIRTY_BITS (VNC_MAX_WIDTH / VNC_BLOCK_SIZE)
 
 #define VNC_STAT_RECT  64
 #define VNC_STAT_COLS (VNC_MAX_WIDTH / VNC_STAT_RECT)
@@ -118,7 +120,7 @@ typedef struct VncRectStat VncRectStat;
 struct VncSurface
 {
     struct timeval last_freq_check;
-    DECLARE_BITMAP(dirty[VNC_MAX_HEIGHT], VNC_MAX_WIDTH / 16);
+    DECLARE_BITMAP(dirty[VNC_MAX_HEIGHT], VNC_DIRTY_BITS);
     VncRectStat stats[VNC_STAT_ROWS][VNC_STAT_COLS];
     pixman_image_t *fb;
     pixman_format_code_t format;
