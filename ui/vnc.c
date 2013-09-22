@@ -3065,6 +3065,8 @@ void vnc_display_open(DisplayState *ds, const char *display, Error **errp)
 
     vs->display = g_strdup(display);
     vs->share_policy = VNC_SHARE_POLICY_ALLOW_EXCLUSIVE;
+    vs->lossy = true;
+    vs->non_adaptive = true;
 
     options = display;
     while ((options = strchr(options, ','))) {

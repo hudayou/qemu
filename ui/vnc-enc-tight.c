@@ -62,16 +62,16 @@ static const struct {
     int idx_max_colors_divisor;
     int jpeg_quality, jpeg_threshold, jpeg_threshold24;
 } tight_conf[] = {
-    {   512,   32,   6, 65536, 0, 0, 0, 0,   0,   0,   4,  5, 10000, 23000 },
-    {  2048,  128,   6, 65536, 1, 1, 1, 0,   0,   0,   8, 10,  8000, 18000 },
-    {  6144,  256,   8, 65536, 3, 3, 2, 0,   0,   0,  24, 15,  6500, 15000 },
-    { 10240, 1024,  12, 65536, 5, 5, 3, 0,   0,   0,  32, 25,  5000, 12000 },
-    { 16384, 2048,  12, 65536, 6, 6, 4, 0,   0,   0,  32, 37,  4000, 10000 },
-    { 32768, 2048,  12,  4096, 7, 7, 5, 4, 150, 380,  32, 50,  3000,  8000 },
-    { 65536, 2048,  16,  4096, 7, 7, 6, 4, 170, 420,  48, 60,  2000,  5000 },
-    { 65536, 2048,  16,  4096, 8, 8, 7, 5, 180, 450,  64, 70,  1000,  2500 },
-    { 65536, 2048,  32,  8192, 9, 9, 8, 6, 190, 475,  64, 75,   500,  1200 },
-    { 65536, 2048,  32,  8192, 9, 9, 9, 6, 200, 500,  96, 80,   200,   500 }
+    { 65536, 2048,   6, 65536, 0, 0, 0, 0,   0,   0,  4,  15, 10000, 23000 },
+    { 65536, 2048,   6, 65536, 1, 1, 1, 1,   0,   0,  8,  29,  8000, 18000 },
+    { 65536, 2048,   8, 65536, 3, 3, 3, 2,   0,   0, 24,  41,  6500, 15000 },
+    { 65536, 2048,  12, 65536, 5, 5, 5, 2,   0,   0, 32,  42,  5000, 12000 },
+    { 65536, 2048,  12, 65536, 6, 6, 7, 3,   0,   0, 32,  62,  4000, 10000 },
+    { 65536, 2048,  12,  4096, 7, 7, 8, 4, 150, 380, 32,  77,  3000,  8000 },
+    { 65536, 2048,  16,  4096, 7, 7, 8, 5, 170, 420, 32,  79,  2000,  5000 },
+    { 65536, 2048,  16,  4096, 8, 8, 9, 6, 180, 450, 64,  86,  1000,  2500 },
+    { 65536, 2048,  24,  8192, 9, 9, 9, 7, 190, 475, 64,  92,   500,  1200 },
+    { 65536, 2048,  32,  8192, 9, 9, 9, 9, 200, 500, 96, 100,   200,   500 }
 };
 
 
@@ -1463,7 +1463,7 @@ static int send_sub_rect(VncState *vs, int x, int y, int w, int h)
     int colors;
     int ret = 0;
 #ifdef CONFIG_VNC_JPEG
-    bool force_jpeg = false;
+    bool force_jpeg = true;
     bool allow_jpeg = true;
 #endif
 
@@ -1640,7 +1640,7 @@ static int tight_send_framebuffer_update(VncState *vs, int x, int y,
     }
 
 #ifdef CONFIG_VNC_JPEG
-    if (vs->tight.quality != (uint8_t)-1) {
+    if (!vs->vd->non_adaptive && vs->tight.quality != (uint8_t)-1) {
         double freq = vnc_update_freq(vs, x, y, w, h);
 
         if (freq > tight_jpeg_conf[vs->tight.quality].jpeg_freq_threshold) {
@@ -1648,6 +1648,8 @@ static int tight_send_framebuffer_update(VncState *vs, int x, int y,
         }
     }
 #endif
+
+    return send_rect_simple(vs, x, y, w, h, false);
 
     if (w * h < VNC_TIGHT_MIN_SPLIT_RECT_SIZE) {
         return send_rect_simple(vs, x, y, w, h, true);
