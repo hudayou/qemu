@@ -81,7 +81,9 @@ typedef void VncSendHextileTile(VncState *vs,
 #define VNC_MAX_WIDTH 2560
 #define VNC_MAX_HEIGHT 2048
 
-#define VNC_BLOCK_SIZE 64
+// VNC_BLOCK_SIZE must be equal to the surface width due to the
+// nature of line by line scannning
+#define VNC_BLOCK_SIZE 320
 
 /* VNC_DIRTY_BITS is the number of bits in the dirty bitmap. */
 #define VNC_DIRTY_BITS (VNC_MAX_WIDTH / VNC_BLOCK_SIZE)
