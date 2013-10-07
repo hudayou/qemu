@@ -14,7 +14,25 @@
 #include "hw/android/opengles.h"
 #include <assert.h>
 
+#include "ui/console.h"
+
 int  android_gles_fast_pipes = 1;
+
+static void android_opengles_update(void *opaque);
+
+typedef struct {
+    QemuConsole *console;
+#if 0
+    bool invalidate;
+#endif
+} OpenglesState;
+
+static const GraphicHwOps android_opengles_ops = {
+#if 0
+    .invalidate  = android_opengles_invalidate,
+#endif
+    .gfx_update  = android_opengles_update,
+};
 
 /* HOST_LONG_BITS is the size of a native pointer in bits. */
 #if UINTPTR_MAX == UINT32_MAX
@@ -61,7 +79,8 @@ int  android_gles_fast_pipes = 1;
   DYNLINK_FUNC(createOpenGLSubwindow) \
   DYNLINK_FUNC(destroyOpenGLSubwindow) \
   DYNLINK_FUNC(repaintOpenGLDisplay) \
-  DYNLINK_FUNC(stopOpenGLRenderer)
+  DYNLINK_FUNC(stopOpenGLRenderer) \
+  DYNLINK_FUNC(readFrameBuffer)
 
 #ifndef CONFIG_STANDALONE_UI
 /* Defined in android/hw-pipe-net.c */
@@ -103,6 +122,7 @@ int
 android_initOpenglesEmulation(void)
 {
     char* error = NULL;
+    OpenglesState *s = NULL;
 
     if (rendererLib != NULL)
         return 0;
@@ -141,6 +161,10 @@ android_initOpenglesEmulation(void)
     } else {
 	    setStreamMode(STREAM_MODE_TCP);
     }
+
+    s = (OpenglesState *)g_malloc0(sizeof(*s));
+    s->console = graphic_console_init(NULL, &android_opengles_ops, s);
+    qemu_console_resize(s->console, 320, 480);
     return 0;
 
 BAD_EXIT:
@@ -148,6 +172,48 @@ BAD_EXIT:
     adynamicLibrary_close(rendererLib);
     rendererLib = NULL;
     return -1;
+}
+
+#if 0
+static void android_opengles_invalidate(void *opaque)
+{
+    OpenglesState *s = (OpenglesState *)opaque;
+    s->invalidate = true;
+}
+#endif
+
+static void android_opengles_update(void *opaque)
+{
+    OpenglesState *s = (OpenglesState *)opaque;
+    DisplaySurface *surface;
+    uint8_t *data;
+    int width;
+    int height;
+    void *fb = NULL;
+    unsigned int i;
+    uint8_t r, g, b;
+    uint32_t pixel;
+
+    if (!s || !s->console ||
+        surface_bits_per_pixel(qemu_console_surface(s->console)) == 0) {
+        return;
+    }
+    surface = qemu_console_surface(s->console);
+    data = surface_data(surface);
+    readFrameBuffer(&width, &height, &fb);
+    for(i = 0; i < width * height; i ++) {
+        // RGBA -> BGRA
+        r = *(uint8_t *)fb;
+        g = *(uint8_t *)(fb + 1);
+        b = *(uint8_t *)(fb + 2);
+        pixel = (r << 16) | (g << 8) | b;
+        *(uint32_t *)data = pixel;
+        fb += 4;
+        data += 4;
+    }
+
+    // fetch image from framebuffer, copy it to surface
+    dpy_gfx_update(s->console, 0, 0, width, height);
 }
 
 int

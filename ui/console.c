@@ -1217,10 +1217,7 @@ static QemuConsole *new_console(DisplayState *ds, console_type_t console_type)
     object_property_add_link(obj, "device", TYPE_DEVICE,
                              (Object **)&s->device, &local_err);
 
-    if (!active_console || ((active_console->console_type != GRAPHIC_CONSOLE) &&
-        (console_type == GRAPHIC_CONSOLE))) {
-        active_console = s;
-    }
+    active_console = s;
     s->ds = ds;
     s->console_type = console_type;
     if (console_type != GRAPHIC_CONSOLE) {

@@ -153,6 +153,10 @@ DECL(void, repaintOpenGLDisplay, (void));
  */
 DECL(int, stopOpenGLRenderer, (void));
 
+/* readFrameBuffer - read the contents of the FrameBuffer
+ */
+DECL(void, readFrameBuffer, (int* width, int* height, void** image));
+
 #ifdef __cplusplus
 }
 #endif
