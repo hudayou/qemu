@@ -9,11 +9,10 @@
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 */
-#include "qemu_file.h"
-#include "arm_pic.h"
+#include "hw/hw.h"
 #include "goldfish_device.h"
 #include "goldfish_vmem.h"
-#include "android/utils/debug.h"
+#include "hw/android/utils/debug.h"
 
 #define PDEV_BUS_OP_DONE        (0x00)
 #define PDEV_BUS_OP_REMOVE_DEV  (0x04)
@@ -84,19 +83,19 @@ int goldfish_add_device_no_io(struct goldfish_device *dev)
     return 0;
 }
 
-int goldfish_device_add(struct goldfish_device *dev,
-                       CPUReadMemoryFunc **mem_read,
-                       CPUWriteMemoryFunc **mem_write,
-                       void *opaque)
+int goldfish_device_add(struct goldfish_device *dev, const MemoryRegionOps *ops, void *opaque)
 {
-    int iomemtype;
+    MemoryRegion *goldfish_device_mem;
+    MemoryRegion *address_space_mem = get_system_memory();
+
     goldfish_add_device_no_io(dev);
-    iomemtype = cpu_register_io_memory(mem_read, mem_write, opaque);
-    cpu_register_physical_memory(dev->base, dev->size, iomemtype);
+    goldfish_device_mem = g_malloc(sizeof(*goldfish_device_mem));
+    memory_region_init_io(goldfish_device_mem, ops, opaque, dev->name, dev->size);
+    memory_region_add_subregion(address_space_mem, dev->base, goldfish_device_mem);
     return 0;
 }
 
-static uint32_t goldfish_bus_read(void *opaque, target_phys_addr_t offset)
+static uint32_t goldfish_bus_read(void *opaque, hwaddr offset)
 {
     struct bus_state *s = (struct bus_state *)opaque;
 
@@ -131,7 +130,7 @@ static uint32_t goldfish_bus_read(void *opaque, target_phys_addr_t offset)
         case PDEV_BUS_IRQ_COUNT:
             return s->current ? s->current->irq_count : 0;
     default:
-        cpu_abort (cpu_single_env, "goldfish_bus_read: Bad offset %x\n", offset);
+        cpu_abort (cpu_single_env, "goldfish_bus_read: Bad offset %" PRIx64 "\n", offset);
         return 0;
     }
 }
@@ -147,7 +146,7 @@ static void goldfish_bus_op_init(struct bus_state *s)
     goldfish_device_set_irq(&s->dev, 0, first_device != NULL);
 }
 
-static void goldfish_bus_write(void *opaque, target_phys_addr_t offset, uint32_t value)
+static void goldfish_bus_write(void *opaque, hwaddr offset, uint32_t value)
 {
     struct bus_state *s = (struct bus_state *)opaque;
 
@@ -167,22 +166,25 @@ static void goldfish_bus_write(void *opaque, target_phys_addr_t offset, uint32_t
             }
             break;
         default:
-            cpu_abort (cpu_single_env, "goldfish_bus_write: Bad offset %x\n", offset);
+            cpu_abort (cpu_single_env, "goldfish_bus_write: Bad offset %" PRIx64 "\n", offset);
     }
 }
 
-static CPUReadMemoryFunc *goldfish_bus_readfn[] = {
-    goldfish_bus_read,
-    goldfish_bus_read,
-    goldfish_bus_read
+static const MemoryRegionOps goldfish_bus_ops = {
+    .old_mmio = {
+        .read = {
+            goldfish_bus_read,
+            goldfish_bus_read,
+            goldfish_bus_read,
+        },
+        .write = {
+            goldfish_bus_write,
+            goldfish_bus_write,
+            goldfish_bus_write,
+        },
+    },
+    .endianness = DEVICE_LITTLE_ENDIAN,
 };
-
-static CPUWriteMemoryFunc *goldfish_bus_writefn[] = {
-    goldfish_bus_write,
-    goldfish_bus_write,
-    goldfish_bus_write
-};
-
 
 static struct bus_state bus_state = {
     .dev = {
@@ -207,6 +209,5 @@ int goldfish_device_bus_init(uint32_t base, uint32_t irq)
     bus_state.dev.base = base;
     bus_state.dev.irq = irq;
 
-    return goldfish_device_add(&bus_state.dev, goldfish_bus_readfn, goldfish_bus_writefn, &bus_state);
+    return goldfish_device_add(&bus_state.dev, &goldfish_bus_ops, &bus_state);
 }
-

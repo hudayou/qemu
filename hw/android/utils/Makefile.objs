@@ -1,0 +1,5 @@
+obj-y += assert.o
+obj-y += debug.o
+obj-y += panic.o
+obj-y += system.o
+

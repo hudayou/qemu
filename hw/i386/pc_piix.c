@@ -180,6 +180,8 @@ static void pc_init1(MemoryRegion *system_memory,
 
     pc_register_ferr_irq(gsi[13]);
 
+    pc_goldfish_init(i8259);
+
     pc_vga_init(isa_bus, pci_enabled ? pci_bus : NULL);
 
     /* init basic PC hardware */

@@ -9,7 +9,7 @@
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 */
-#include "android/utils/debug.h"
+#include "hw/android/utils/debug.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>

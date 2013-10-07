@@ -9,9 +9,11 @@
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 */
-#include "android/utils/panic.h"
+#include "hw/android/utils/panic.h"
 #include <stdio.h>
 #include <stdlib.h>
+
+void android_panic_registerHandler( APanicHandlerFunc  handler );
 
 static void __attribute__((noreturn))
 _android_panic_defaultHandler( const char*  fmt, va_list  args )

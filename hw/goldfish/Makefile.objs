@@ -1,0 +1,3 @@
+obj-y += goldfish_device.o
+obj-y += goldfish_pipe.o
+obj-y += goldfish_vmem.o

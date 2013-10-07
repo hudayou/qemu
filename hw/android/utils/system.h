@@ -16,7 +16,7 @@
 #include <stdint.h>
 #define __STDC_FORMAT_MACROS 1
 #include <inttypes.h>  /* for PRId64 et al. */
-#include "android/utils/assert.h"
+#include "hw/android/utils/assert.h"
 
 /* internal helpers */
 void*  _android_array_alloc( size_t  itemSize, size_t  count );

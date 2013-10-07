@@ -92,6 +92,7 @@ void i8042_setup_a20_line(ISADevice *dev, qemu_irq *a20_out);
 extern int fd_bootchk;
 
 void pc_register_ferr_irq(qemu_irq irq);
+void pc_goldfish_init(qemu_irq* pic);
 void pc_acpi_smi_interrupt(void *opaque, int irq, int level);
 
 void pc_cpus_init(const char *cpu_model, DeviceState *icc_bridge);

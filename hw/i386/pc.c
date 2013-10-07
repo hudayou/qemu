@@ -57,6 +57,9 @@
 #include "hw/boards.h"
 #include "hw/pci/pci_host.h"
 
+#include "hw/goldfish/goldfish_device.h"
+#include "hw/goldfish/goldfish_pipe.h"
+
 /* debug PC/ISA interrupts */
 //#define DEBUG_IRQ
 
@@ -119,6 +122,14 @@ static qemu_irq ferr_irq;
 void pc_register_ferr_irq(qemu_irq irq)
 {
     ferr_irq = irq;
+}
+
+void pc_goldfish_init(qemu_irq* pic)
+{
+#define IRQ_PDEV_BUS 4
+    goldfish_device_init(pic, 0xff010000, 0x7f0000, 5, 5);
+    goldfish_device_bus_init(0xff001000, IRQ_PDEV_BUS);
+    pipe_dev_init();
 }
 
 /* XXX: add IGNNE support */

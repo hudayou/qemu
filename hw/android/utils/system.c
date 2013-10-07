@@ -9,8 +9,8 @@
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 */
-#include "android/utils/system.h"
-#include "android/utils/assert.h"
+#include "hw/android/utils/system.h"
+#include "hw/android/utils/assert.h"
 #include <stdlib.h>
 #include <stdio.h>
 #ifdef _WIN32
@@ -82,7 +82,7 @@ android_free( void*  block )
 void*
 _android_array_alloc( size_t  itemSize, size_t  count )
 {
-#if ACONFIG_USE_ASSERT
+#ifdef ACONFIG_USE_ASSERT
     size_t  maxSize;
 
     if (itemSize == 0)
@@ -106,7 +106,7 @@ _android_array_alloc0( size_t  itemSize, size_t  count )
 void*
 _android_array_realloc( void* block, size_t  itemSize, size_t  count )
 {
-#if ACONFIG_USE_ASSERT
+#ifdef ACONFIG_USE_ASSERT
     size_t  maxSize;
 
     if (itemSize == 0)

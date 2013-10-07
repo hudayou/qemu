@@ -9,8 +9,8 @@
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 */
-#include "android/utils/assert.h"
-#include "android/utils/panic.h"
+#include "hw/android/utils/assert.h"
+#include "hw/android/utils/panic.h"
 #include <stdio.h>
 
 typedef struct {
@@ -18,6 +18,8 @@ typedef struct {
     long         lineno;
     const char*  function;
 } AssertLoc;
+
+AssertLoc* _get_assert_loc(void);
 
 AssertLoc*
 _get_assert_loc(void)
