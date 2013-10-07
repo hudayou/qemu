@@ -1315,6 +1315,13 @@ static int kvm_get_sregs(X86CPU *cpu)
     return 0;
 }
 
+int kvm_get_sregs_debug(CPUArchState *env)
+{
+
+    X86CPU *cpu = X86_CPU(container_of(env, X86CPU, env));
+    return kvm_get_sregs(cpu);
+}
+
 static int kvm_get_msrs(X86CPU *cpu)
 {
     CPUX86State *env = &cpu->env;

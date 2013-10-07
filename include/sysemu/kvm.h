@@ -272,6 +272,8 @@ uint32_t kvm_arch_get_supported_cpuid(KVMState *env, uint32_t function,
                                       uint32_t index, int reg);
 void kvm_cpu_synchronize_state(CPUState *cpu);
 
+int kvm_get_sregs_debug(CPUArchState *env);
+
 /* generic hooks - to be moved/refactored once there are more users */
 
 static inline void cpu_synchronize_state(CPUState *cpu)
