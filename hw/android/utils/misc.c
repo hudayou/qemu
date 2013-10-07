@@ -10,13 +10,14 @@
 ** GNU General Public License for more details.
 */
 
-#include "qemu-common.h"
-#include "android/utils/misc.h"
-#include "android/utils/stralloc.h"
-#include "android/utils/debug.h"
+#include "hw/android/utils/misc.h"
+#include "hw/android/utils/stralloc.h"
+#include "hw/android/utils/debug.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <limits.h>
 
 #define  E(...)    derror(__VA_ARGS__)
 

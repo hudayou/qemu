@@ -10,13 +10,13 @@
 ** GNU General Public License for more details.
 */
 
-#include "android/utils/assert.h"
-#include "android/utils/reflist.h"
-#include "android/utils/refset.h"
-#include "android/utils/system.h"
-#include "android/looper.h"
+#include "hw/android/utils/assert.h"
+#include "hw/android/utils/reflist.h"
+#include "hw/android/utils/refset.h"
+#include "hw/android/utils/system.h"
+#include "hw/android/looper.h"
 #include "iolooper.h"
-#include "sockets.h"
+#include "hw/android/utils/sockets.h"
 #include <inttypes.h>
 #include <limits.h>
 #include <errno.h>

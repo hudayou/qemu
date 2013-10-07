@@ -18,19 +18,20 @@
  * guest clients to directly connect to a TCP port through /dev/qemu_pipe.
  */
 
-#include "sockets.h"
-#include "android/utils/assert.h"
-#include "android/utils/panic.h"
-#include "android/utils/system.h"
-#include "android/async-utils.h"
-#include "android/opengles.h"
-#include "android/looper.h"
-#include "hw/goldfish_pipe.h"
+#include "hw/android/utils/sockets.h"
+#include "hw/android/utils/assert.h"
+#include "hw/android/utils/panic.h"
+#include "hw/android/utils/system.h"
+#include "hw/android/async-utils.h"
+#include "hw/android/opengles.h"
+#include "hw/android/looper.h"
+#include "hw/goldfish/goldfish_pipe.h"
 
 /* Implement the OpenGL fast-pipe */
 
 /* Set to 1 or 2 for debug traces */
 // #define  DEBUG  1
+#define  DEBUG  0
 
 #if DEBUG >= 1
 #  define D(...)   printf(__VA_ARGS__), printf("\n")
@@ -70,6 +71,25 @@ typedef struct {
     LoopIo          io[1];
     AsyncConnector  connector[1];
 } NetPipe;
+
+//static void netPipe_free( NetPipe*  pipe );
+//static void netPipe_resetState( NetPipe* pipe );
+//static void netPipe_closeFromSocket( void* opaque );
+//static void netPipe_io_func( void* opaque, int fd, unsigned events );
+void* netPipe_initFromAddress( void* hwpipe, const SockAddress*  address, Looper* looper );
+//static void netPipe_closeFromGuest( void* opaque );
+//static int netPipeReadySend(NetPipe *pipe);
+//static int netPipe_sendBuffers( void* opaque, const GoldfishPipeBuffer* buffers, int numBuffers );
+//static int netPipe_recvBuffers( void* opaque, GoldfishPipeBuffer*  buffers, int  numBuffers );
+//static unsigned netPipe_poll( void* opaque );
+//static void netPipe_wakeOn( void* opaque, int flags );
+void* netPipe_initTcp( void* hwpipe, void* _looper, const char* args );
+#ifndef _WIN32
+void* netPipe_initUnix( void* hwpipe, void* _looper, const char* args );
+#endif
+static void* openglesPipe_init( void* hwpipe, void* _looper, const char* args );
+void android_net_pipes_init(void);
+int android_init_opengles_pipes(void);
 
 static void
 netPipe_free( NetPipe*  pipe )
@@ -482,7 +502,6 @@ static int  _opengles_init;
 static void*
 openglesPipe_init( void* hwpipe, void* _looper, const char* args )
 {
-    char temp[32];
     NetPipe *pipe;
 
     if (!_opengles_init) {
@@ -508,7 +527,7 @@ openglesPipe_init( void* hwpipe, void* _looper, const char* args )
     }
     if (pipe != NULL) {
         // Disable TCP nagle algorithm to improve throughput of small packets
-        socket_set_nodelay(pipe->io->fd);
+        android_socket_set_nodelay(pipe->io->fd);
 
     // On Win32, adjust buffer sizes
 #ifdef _WIN32

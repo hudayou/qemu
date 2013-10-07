@@ -12,8 +12,8 @@
 #ifndef _ANDROID_UTILS_VECTOR_H
 #define _ANDROID_UTILS_VECTOR_H
 
-#include "android/utils/system.h"
-#include "android/utils/assert.h"
+#include "hw/android/utils/system.h"
+#include "hw/android/utils/assert.h"
 
 #define  AVECTOR_DECL(ctype,name)  \
     ctype*    name; \

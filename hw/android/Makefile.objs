@@ -1,1 +1,6 @@
 obj-y += utils/
+obj-y += async-utils.o
+obj-y += hw-pipe-net.o
+obj-y += looper-generic.o
+obj-y += looper-qemu.o
+obj-y += opengles.o

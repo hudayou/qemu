@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "android/async-utils.h"
+#include "hw/android/async-utils.h"
 #include "unistd.h"
 
 void
@@ -220,7 +220,7 @@ asyncConnector_init(AsyncConnector*    ac,
     int ret;
     ac->error = 0;
     ac->io    = io;
-    ret = socket_connect(io->fd, address);
+    ret = android_socket_connect(io->fd, address);
     if (ret == 0) {
         ac->state = CONNECT_COMPLETED;
         return ASYNC_COMPLETE;

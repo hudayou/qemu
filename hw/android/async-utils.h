@@ -16,8 +16,8 @@
 #ifndef ANDROID_ASYNC_UTILS_H
 #define ANDROID_ASYNC_UTILS_H
 
-#include "android/looper.h"
-#include "sockets.h"
+#include "hw/android/utils/sockets.h"
+#include "hw/android/looper.h"
 
 /* A set of useful data types to perform asynchronous operations.
  *

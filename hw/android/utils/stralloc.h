@@ -44,6 +44,7 @@ extern char*  stralloc_cstr( stralloc_t*  s );
 extern void   stralloc_format( stralloc_t*  s, const char*  fmt, ... );
 extern void   stralloc_formatv( stralloc_t*  s, const char*  fmt, va_list  args );
 extern void   stralloc_add_format( stralloc_t*  s, const char*  fmt, ... );
+extern void   stralloc_add_formatv( stralloc_t*  s, const char*  fmt, va_list  args );
 
 extern void   stralloc_add_quote_c( stralloc_t*  s, int  c );
 extern void   stralloc_add_quote_str( stralloc_t*  s, const char*  str );

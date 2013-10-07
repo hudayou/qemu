@@ -10,9 +10,9 @@
 ** GNU General Public License for more details.
 */
 
-#include "android/utils/bufprint.h"
-#include "android/utils/path.h"
-#include "android/utils/debug.h"
+#include "hw/android/utils/bufprint.h"
+#include "hw/android/utils/path.h"
+#include "hw/android/utils/debug.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -12,7 +12,7 @@
 #ifndef _ANDROID_UTILS_REFSET_H
 #define _ANDROID_UTILS_REFSET_H
 
-#include <android/utils/vector.h>
+#include "hw/android/utils/vector.h"
 
 /* this implements a set of addresses in memory.
  * NULL cannot be stored in the set.

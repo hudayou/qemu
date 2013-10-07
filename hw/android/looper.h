@@ -15,7 +15,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <limits.h>
-#include <android/utils/system.h>
+#include "hw/android/utils/system.h"
 
 /**********************************************************************
  **********************************************************************

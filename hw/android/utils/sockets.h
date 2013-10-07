@@ -142,7 +142,7 @@
 /* initialize the socket sub-system. this must be called before
  * using any of the declarations below.
  */
-int  socket_init( void );
+int  android_socket_init( void );
 
 /* return the name of the current host */
 char*  host_name( void );
@@ -340,7 +340,7 @@ int  socket_set_nonblock(int fd);
 int  socket_set_blocking(int fd);
 
 /* disable the TCP Nagle algorithm for lower latency */
-int  socket_set_nodelay(int fd);
+int  android_socket_set_nodelay(int fd);
 
 /* send OOB data inline for this socket */
 int  socket_set_oobinline(int  fd);
@@ -366,11 +366,11 @@ int   socket_send  ( int  fd, const void*  buf, int  buflen );
 int   socket_send_oob( int  fd, const void*  buf, int  buflen );
 int   socket_sendto( int  fd, const void*  buf, int  buflen, const SockAddress*  to );
 
-int   socket_connect( int  fd, const SockAddress*  address );
+int   android_socket_connect( int  fd, const SockAddress*  address );
 int   socket_bind( int  fd, const SockAddress*  address );
 int   socket_get_address( int  fd, SockAddress*  address );
 int   socket_get_peer_address( int  fd, SockAddress*  address );
-int   socket_listen( int  fd, int  backlog );
+int   android_socket_listen( int  fd, int  backlog );
 int   socket_accept( int  fd, SockAddress*  address );
 
 /* returns the number of bytes that can be read from a socket */

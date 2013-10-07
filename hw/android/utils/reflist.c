@@ -9,9 +9,9 @@
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 */
-#include "android/utils/reflist.h"
-#include "android/utils/system.h"
-#include "android/utils/assert.h"
+#include "hw/android/utils/reflist.h"
+#include "hw/android/utils/system.h"
+#include "hw/android/utils/assert.h"
 #include <stdlib.h>
 #include <string.h>
 

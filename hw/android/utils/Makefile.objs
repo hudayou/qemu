@@ -2,4 +2,14 @@ obj-y += assert.o
 obj-y += debug.o
 obj-y += panic.o
 obj-y += system.o
+obj-y += misc.o
+obj-y += path.o
+obj-y += reflist.o
+obj-y += refset.o
+obj-y += stralloc.o
+obj-y += vector.o
+obj-y += bufprint.o
+obj-y += dll.o
+obj-y += sockets.o
 
+QEMU_CFLAGS+=-ldl

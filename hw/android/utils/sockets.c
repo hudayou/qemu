@@ -14,17 +14,16 @@
 #  define _GNU_SOURCE 1
 #endif
 
-#include "sockets.h"
+#include "hw/android/utils/sockets.h"
 #include <fcntl.h>
 #include <stddef.h>
-#include "qemu_debug.h"
-#include "qemu-char.h"
+#include "qemu/osdep.h"
 #include <stdlib.h>
 #include <string.h>
-#include "android/utils/path.h"
-#include "android/utils/debug.h"
-#include "android/utils/misc.h"
-#include "android/utils/system.h"
+#include "hw/android/utils/path.h"
+#include "hw/android/utils/debug.h"
+#include "hw/android/utils/misc.h"
+#include "hw/android/utils/system.h"
 
 #define  D(...) VERBOSE_PRINT(socket,__VA_ARGS__)
 
@@ -868,7 +867,7 @@ sock_address_get_numeric_info( SockAddress*  a,
         slen  = sizeof(a->u.inet.address);
         break;
 
-#if HAVE_IN6_SOCKET
+#if HAVE_IN6_SOCKETS
     case SOCKET_IN6:
         saddr = (struct sockaddr*) &a->u.in6.address;
         slen  = sizeof(a->u.in6.address);
@@ -1008,7 +1007,7 @@ socket_recvfrom(int  fd, void*  buf, int  len, SockAddress*  from)
 }
 
 int
-socket_connect( int  fd, const SockAddress*  address )
+android_socket_connect( int  fd, const SockAddress*  address )
 {
     sockaddr_storage  addr;
     socklen_t         addrlen;
@@ -1060,7 +1059,7 @@ socket_get_peer_address( int  fd, SockAddress*  address )
 }
 
 int
-socket_listen( int  fd, int  backlog )
+android_socket_listen( int  fd, int  backlog )
 {
     SOCKET_CALL(listen(fd, backlog));
 }
@@ -1166,7 +1165,7 @@ int socket_set_oobinline(int  fd)
 }
 
 
-int  socket_set_nodelay(int  fd)
+int  android_socket_set_nodelay(int  fd)
 {
     return socket_setoption(fd, IPPROTO_TCP, TCP_NODELAY, 1);
 }
@@ -1197,7 +1196,7 @@ static void socket_cleanup(void)
     WSACleanup();
 }
 
-int socket_init(void)
+int android_socket_init(void)
 {
     WSADATA Data;
     int ret, err;
@@ -1213,7 +1212,7 @@ int socket_init(void)
 
 #else /* !_WIN32 */
 
-int socket_init(void)
+int android_socket_init(void)
 {
    return 0;   /* nothing to do on Unix */
 }
@@ -1283,7 +1282,7 @@ socket_bind_server( int  s, const SockAddress*  to, SocketType  type )
     }
 
     if (type == SOCKET_STREAM) {
-        if (socket_listen(s, 4) < 0) {
+        if (android_socket_listen(s, 4) < 0) {
             D("could not listen server socket %s: %s",
               sock_address_to_string(to), errno_str);
             goto FAIL;
@@ -1300,7 +1299,7 @@ FAIL:
 static int
 socket_connect_client( int  s, const SockAddress*  to )
 {
-    if (socket_connect(s, to) < 0) {
+    if (android_socket_connect(s, to) < 0) {
         D( "could not connect client socket to %s: %s\n",
            sock_address_to_string(to), errno_str );
         socket_close(s);
@@ -1558,11 +1557,12 @@ host_name( void )
 {
     static char buf[256];  /* 255 is the max host name length supported by DNS */
     int         ret;
+    static char actual_host_name[] = "localhost";
 
     QSOCKET_CALL(ret, gethostname(buf, sizeof(buf)));
 
     if (ret < 0)
-        return "localhost";
+        return actual_host_name;
     else
         return buf;
 }

@@ -13,7 +13,7 @@
 #define _ANDROID_GRAPHICS_REFLIST_H
 
 #include <inttypes.h>
-#include <android/utils/system.h>
+#include "hw/android/utils/system.h"
 
 /* Definitions for a smart list of references to generic objects.
  * supports safe deletion and addition while they are being iterated

@@ -8,7 +8,20 @@
 #  include <sys/types.h>
 #  include <sys/select.h>
 #endif
-#include "sockets.h"
+
+/*
+ * A fixer for timeout value passed to select() on Mac. The issue is that Mac's
+ * version of select() will return EINVAL on timeouts larger than 100000000
+ * seconds, even though it should have just clamped it. So, for Mac we should
+ * make sure that timeout value is bound to 100000000 seconds before passing it
+ * to select().
+ */
+#ifdef __APPLE__
+#define CLAMP_MAC_TIMEOUT(to) do { if (to > 100000000000LL) to = 100000000000LL; } while (0)
+#else
+#define CLAMP_MAC_TIMEOUT(to) ((void)0)
+#endif  // __APPLE__
+
 
 struct IoLooper {
     fd_set   reads[1];

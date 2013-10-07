@@ -171,6 +171,10 @@ int main(int argc, char **argv)
 #include "ui/qemu-spice.h"
 #include "qapi/string-input-visitor.h"
 
+#include "hw/android/hw-pipe-net.h"
+#include "hw/android/opengles.h"
+#include <X11/Xlib.h>
+
 //#define DEBUG_NET
 //#define DEBUG_SLIRP
 
@@ -3888,6 +3892,13 @@ int main(int argc, char **argv, char **envp)
         exit(1);
     }
 #endif
+
+    android_net_pipes_init();
+
+    XInitThreads();
+    if (android_initOpenglesEmulation() == 0 &&
+        android_startOpenglesRenderer(320, 480) == 0) {
+    }
 
     if (machine == NULL) {
         fprintf(stderr, "No machine found.\n");

@@ -10,9 +10,9 @@
 ** GNU General Public License for more details.
 */
 
-#include "android/utils/stralloc.h"
-#include "android/utils/debug.h"
-#include "android/utils/misc.h"
+#include "hw/android/utils/stralloc.h"
+#include "hw/android/utils/debug.h"
+#include "hw/android/utils/misc.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

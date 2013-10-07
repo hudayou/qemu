@@ -10,23 +10,32 @@
 ** GNU General Public License for more details.
 */
 
-#include "config-host.h"
-#include "android/opengles.h"
+#include <stdint.h>
+#include "hw/android/opengles.h"
 #include <assert.h>
 
-/* Declared in "android/globals.h" */
 int  android_gles_fast_pipes = 1;
 
-#if CONFIG_ANDROID_OPENGLES
+/* HOST_LONG_BITS is the size of a native pointer in bits. */
+#if UINTPTR_MAX == UINT32_MAX
+# define HOST_LONG_BITS 32
+#elif UINTPTR_MAX == UINT64_MAX
+# define HOST_LONG_BITS 64
+#else
+# error Unknown pointer size
+#endif
 
-#include "android/globals.h"
-#include <android/utils/debug.h>
-#include <android/utils/path.h>
-#include <android/utils/bufprint.h>
-#include <android/utils/dll.h>
+#define CONFIG_ANDROID_OPENGLES 1
+
+#ifdef CONFIG_ANDROID_OPENGLES
+
+#include "hw/android/utils/debug.h"
+#include "hw/android/utils/path.h"
+#include "hw/android/utils/bufprint.h"
+#include "hw/android/utils/dll.h"
 
 #define RENDER_API_NO_PROTOTYPES 1
-#include <libOpenglRender/render_api.h>
+#include "libOpenglRender/render_api.h"
 
 #include <stdio.h>
 #include <stdlib.h>
