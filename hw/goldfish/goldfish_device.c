@@ -43,7 +43,7 @@ uint32_t goldfish_free_irq;
 void goldfish_device_set_irq(struct goldfish_device *dev, int irq, int level)
 {
     if(irq >= dev->irq_count)
-        cpu_abort (cpu_single_env, "goldfish_device_set_irq: Bad irq %d >= %d\n", irq, dev->irq_count);
+        cpu_abort (current_cpu->env_ptr, "goldfish_device_set_irq: Bad irq %d >= %d\n", irq, dev->irq_count);
     else
         qemu_set_irq(goldfish_pic[dev->irq + irq], level);
 }
@@ -90,7 +90,7 @@ int goldfish_device_add(struct goldfish_device *dev, const MemoryRegionOps *ops,
 
     goldfish_add_device_no_io(dev);
     goldfish_device_mem = g_malloc(sizeof(*goldfish_device_mem));
-    memory_region_init_io(goldfish_device_mem, ops, opaque, dev->name, dev->size);
+    memory_region_init_io(goldfish_device_mem, NULL, ops, opaque, dev->name, dev->size);
     memory_region_add_subregion(address_space_mem, dev->base, goldfish_device_mem);
     return 0;
 }
@@ -130,7 +130,7 @@ static uint32_t goldfish_bus_read(void *opaque, hwaddr offset)
         case PDEV_BUS_IRQ_COUNT:
             return s->current ? s->current->irq_count : 0;
     default:
-        cpu_abort (cpu_single_env, "goldfish_bus_read: Bad offset %" PRIx64 "\n", offset);
+        cpu_abort (current_cpu->env_ptr, "goldfish_bus_read: Bad offset %" PRIx64 "\n", offset);
         return 0;
     }
 }
@@ -157,16 +157,16 @@ static void goldfish_bus_write(void *opaque, hwaddr offset, uint32_t value)
                     goldfish_bus_op_init(s);
                     break;
                 default:
-                    cpu_abort (cpu_single_env, "goldfish_bus_write: Bad PDEV_BUS_OP value %x\n", value);
+                    cpu_abort (current_cpu->env_ptr, "goldfish_bus_write: Bad PDEV_BUS_OP value %x\n", value);
             };
             break;
         case PDEV_BUS_GET_NAME:
             if(s->current) {
-                safe_memory_rw_debug(cpu_single_env, value, (void*)s->current->name, strlen(s->current->name), 1);
+                safe_memory_rw_debug(current_cpu, value, (void*)s->current->name, strlen(s->current->name), 1);
             }
             break;
         default:
-            cpu_abort (cpu_single_env, "goldfish_bus_write: Bad offset %" PRIx64 "\n", offset);
+            cpu_abort (current_cpu->env_ptr, "goldfish_bus_write: Bad offset %" PRIx64 "\n", offset);
     }
 }
 

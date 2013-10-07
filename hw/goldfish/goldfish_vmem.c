@@ -26,22 +26,22 @@
 // and on AMD some of those ioctls (in particular KVM_GET_MSRS) are 10 to 100x
 // slower than on Intel chips.
 
-int safe_memory_rw_debug(CPUArchState *env, target_ulong addr, uint8_t *buf,
+int safe_memory_rw_debug(CPUState *env, target_ulong addr, uint8_t *buf,
                          int len, int is_write)
 {
 #ifdef TARGET_I386
     if (kvm_enabled()) {
-        kvm_get_sregs_debug(env);
+        kvm_get_sregs_debug(env->env_ptr);
     }
 #endif
     return cpu_memory_rw_debug(env, addr, buf, len, is_write);
 }
 
-hwaddr safe_get_phys_page_debug(CPUArchState *env, target_ulong addr)
+hwaddr safe_get_phys_page_debug(CPUState *env, target_ulong addr)
 {
 #ifdef TARGET_I386
     if (kvm_enabled()) {
-        kvm_get_sregs_debug(env);
+        kvm_get_sregs_debug(env->env_ptr);
     }
 #endif
     return cpu_get_phys_page_debug(env, addr);
