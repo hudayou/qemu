@@ -15,6 +15,7 @@
 #include "goldfish_device.h"
 #include "goldfish_vmem.h"
 #include "qemu/timer.h"
+#include "exec/memory-internal.h"
 
 #define  DEBUG 0
 
