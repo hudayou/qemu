@@ -1910,6 +1910,53 @@ static void send_ext_audio_ack(VncState *vs)
     vnc_flush(vs);
 }
 
+// write_fence() sends a new fence request or response to the client.
+static void write_fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data)
+{
+    char pad[3] = { 0, 0, 0 };
+
+    vnc_lock_output(vs);
+
+    vnc_write_u8(vs, VNC_MSG_SERVER_FENCE);
+    vnc_write(vs, pad, 3);           /* padding */
+
+    vnc_write_u32(vs, flags);
+
+    vnc_write_u8(vs, len);
+    if (len > 0)
+        vnc_write(vs, data, len);
+
+    vnc_unlock_output(vs);
+    vnc_flush(vs);
+}
+
+// supports_fence() is called the first time we detect support for fences
+// in the client. A fence message should be sent at this point to notify
+// the client of server support.
+static void supports_fence(VncState *vs)
+{
+    if (!vnc_has_feature(vs, VNC_FEATURE_FENCE)) {
+        return;
+    }
+
+    write_fence(vs, FENCE_FLAG_REQUEST, 0, NULL);
+}
+
+// fence() is called when we get a fence request or response. By default
+// it responds directly to requests (stating it doesn't support any
+// synchronisation) and drops responses. Override to implement more proper
+// support.
+static void fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data)
+{
+    if (!(flags & FENCE_FLAG_REQUEST))
+        return;
+
+    // We cannot guarantee any synchronisation at this level
+    flags = 0;
+
+    write_fence(vs, flags, len, data);
+}
+
 static void set_encodings(VncState *vs, int32_t *encodings, size_t n_encodings)
 {
     int i;
@@ -1981,6 +2028,9 @@ static void set_encodings(VncState *vs, int32_t *encodings, size_t n_encodings)
             break;
         case VNC_ENCODING_LED_STATE:
             vs->features |= VNC_FEATURE_LED_STATE_MASK;
+            break;
+        case VNC_ENCODING_FENCE:
+            vs->features |= VNC_FEATURE_FENCE_MASK;
             break;
         case VNC_ENCODING_COMPRESSLEVEL0 ... VNC_ENCODING_COMPRESSLEVEL0 + 9:
             vs->tight.compression = (enc & 0x0F);
@@ -2098,6 +2148,7 @@ static int protocol_client_msg(VncState *vs, uint8_t *data, size_t len)
     int i;
     uint16_t limit;
     VncDisplay *vd = vs->vd;
+    bool first_fence;
 
     if (data[0] > 3) {
         update_displaychangelistener(&vd->dcl, VNC_REFRESH_INTERVAL_BASE);
@@ -2130,7 +2181,25 @@ static int protocol_client_msg(VncState *vs, uint8_t *data, size_t len)
             memcpy(data + 4 + (i * 4), &val, sizeof(val));
         }
 
+        first_fence = !vnc_has_feature(vs, VNC_FEATURE_FENCE);
+
         set_encodings(vs, (int32_t *)(data + 4), limit);
+
+        if (vnc_has_feature(vs, VNC_FEATURE_FENCE) && first_fence)
+            supports_fence(vs);
+
+        break;
+    case VNC_MSG_CLIENT_FENCE:
+        if (len == 1)
+            return 9;
+
+        if (len == 9) {
+            uint8_t dlen = read_u8(data, 8);
+            if (dlen > 0)
+                return 9 + dlen;
+        }
+
+        fence(vs, read_u32(data, 4), read_u8(data, 8), data + 9);
         break;
     case VNC_MSG_CLIENT_FRAMEBUFFER_UPDATE_REQUEST:
         if (len == 1)
