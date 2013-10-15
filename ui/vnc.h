@@ -409,6 +409,7 @@ enum {
 #define VNC_ENCODING_TIGHT_PNG            0xFFFFFEFC /* -260 */
 #define VNC_ENCODING_LED_STATE            0XFFFFFEFB /* -261 */
 #define VNC_ENCODING_FENCE                0XFFFFFEC8 /* -312 */
+#define VNC_ENCODING_CONTINUOUS_UPDATES   0XFFFFFEC7 /* -313 */
 #define VNC_ENCODING_WMVi                 0x574D5669
 
 /*****************************************************************************
@@ -449,6 +450,7 @@ enum {
 #define VNC_FEATURE_ZYWRLE                  10
 #define VNC_FEATURE_LED_STATE               11
 #define VNC_FEATURE_FENCE                   12
+#define VNC_FEATURE_CONTINUOUS_UPDATES      13
 
 #define VNC_FEATURE_RESIZE_MASK              (1 << VNC_FEATURE_RESIZE)
 #define VNC_FEATURE_HEXTILE_MASK             (1 << VNC_FEATURE_HEXTILE)
@@ -463,6 +465,7 @@ enum {
 #define VNC_FEATURE_ZYWRLE_MASK              (1 << VNC_FEATURE_ZYWRLE)
 #define VNC_FEATURE_LED_STATE_MASK           (1 << VNC_FEATURE_LED_STATE)
 #define VNC_FEATURE_FENCE_MASK               (1 << VNC_FEATURE_FENCE)
+#define VNC_FEATURE_CONTINUOUS_UPDATES_MASK  (1 << VNC_FEATURE_CONTINUOUS_UPDATES)
 
 
 /* Client -> Server message IDs */
@@ -473,6 +476,7 @@ enum {
 #define VNC_MSG_CLIENT_POINTER_EVENT              5
 #define VNC_MSG_CLIENT_CUT_TEXT                   6
 #define VNC_MSG_CLIENT_VMWARE_0                   127
+#define VNC_MSG_CLIENT_ENABLE_CONTINUOUS_UPDATES  150
 #define VNC_MSG_CLIENT_FENCE                      248
 #define VNC_MSG_CLIENT_CALL_CONTROL               249
 #define VNC_MSG_CLIENT_XVP                        250
@@ -488,6 +492,7 @@ enum {
 #define VNC_MSG_SERVER_BELL                       2
 #define VNC_MSG_SERVER_CUT_TEXT                   3
 #define VNC_MSG_SERVER_VMWARE_0                   127
+#define VNC_MSG_SERVER_END_OF_CONTINUOUS_UPDATES  150
 #define VNC_MSG_SERVER_FENCE                      248
 #define VNC_MSG_SERVER_CALL_CONTROL               249
 #define VNC_MSG_SERVER_XVP                        250

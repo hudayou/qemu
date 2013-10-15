@@ -1943,6 +1943,22 @@ static void write_fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data
     vnc_flush(vs);
 }
 
+// write_end_of_continuous_updates() indicates that we have left continuous
+// updates mode.
+static void write_end_of_continuous_updates(VncState *vs)
+{
+    if (!vnc_has_feature(vs, VNC_FEATURE_CONTINUOUS_UPDATES)) {
+        return;
+    }
+
+    vnc_lock_output(vs);
+
+    vnc_write_u8(vs, VNC_MSG_SERVER_END_OF_CONTINUOUS_UPDATES);
+
+    vnc_unlock_output(vs);
+    vnc_flush(vs);
+}
+
 // supports_fence() is called the first time we detect support for fences
 // in the client. A fence message should be sent at this point to notify
 // the client of server support.
@@ -1953,6 +1969,19 @@ static void supports_fence(VncState *vs)
     }
 
     write_fence(vs, FENCE_FLAG_REQUEST, 0, NULL);
+}
+
+// supports_continuous_updates() is called the first time we detect that
+// the client wants the continuous updates extension. A
+// EndOfContinuousUpdates message should be sent back to the client at
+// this point if it is supported.
+static void supports_continuous_updates(VncState *vs)
+{
+    if (!vnc_has_feature(vs, VNC_FEATURE_CONTINUOUS_UPDATES)) {
+        return;
+    }
+
+    write_end_of_continuous_updates(vs);
 }
 
 // fence() is called when we get a fence request or response. By default
@@ -1995,6 +2024,12 @@ static void fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data)
         default:
             VNC_DEBUG("Fence response of unexpected size received");
     }
+}
+
+// enable_continuous_updates() is called when the client wants to enable
+// or disable continuous updates, or change the active area.
+static void enable_continuous_updates(VncState *vs, bool enable, int x, int y, int w, int h)
+{
 }
 
 static void set_encodings(VncState *vs, int32_t *encodings, size_t n_encodings)
@@ -2071,6 +2106,9 @@ static void set_encodings(VncState *vs, int32_t *encodings, size_t n_encodings)
             break;
         case VNC_ENCODING_FENCE:
             vs->features |= VNC_FEATURE_FENCE_MASK;
+            break;
+        case VNC_ENCODING_CONTINUOUS_UPDATES:
+            vs->features |= VNC_FEATURE_CONTINUOUS_UPDATES_MASK;
             break;
         case VNC_ENCODING_COMPRESSLEVEL0 ... VNC_ENCODING_COMPRESSLEVEL0 + 9:
             vs->tight.compression = (enc & 0x0F);
@@ -2188,7 +2226,7 @@ static int protocol_client_msg(VncState *vs, uint8_t *data, size_t len)
     int i;
     uint16_t limit;
     VncDisplay *vd = vs->vd;
-    bool first_fence;
+    bool first_fence, first_continuous_updates;
 
     if (data[0] > 3) {
         update_displaychangelistener(&vd->dcl, VNC_REFRESH_INTERVAL_BASE);
@@ -2222,11 +2260,15 @@ static int protocol_client_msg(VncState *vs, uint8_t *data, size_t len)
         }
 
         first_fence = !vnc_has_feature(vs, VNC_FEATURE_FENCE);
+        first_continuous_updates = !vnc_has_feature(vs, VNC_FEATURE_CONTINUOUS_UPDATES);
 
         set_encodings(vs, (int32_t *)(data + 4), limit);
 
         if (vnc_has_feature(vs, VNC_FEATURE_FENCE) && first_fence)
             supports_fence(vs);
+
+        if (vnc_has_feature(vs, VNC_FEATURE_CONTINUOUS_UPDATES) && first_continuous_updates)
+            supports_continuous_updates(vs);
 
         break;
     case VNC_MSG_CLIENT_FENCE:
@@ -2240,6 +2282,14 @@ static int protocol_client_msg(VncState *vs, uint8_t *data, size_t len)
         }
 
         fence(vs, read_u32(data, 4), read_u8(data, 8), data + 9);
+        break;
+    case VNC_MSG_CLIENT_ENABLE_CONTINUOUS_UPDATES:
+        if (len == 1)
+            return 10;
+
+        enable_continuous_updates(vs, read_u8(data, 1), read_u16(data, 2),
+                                  read_u16(data, 4), read_u16(data, 6),
+                                  read_u16(data, 8));
         break;
     case VNC_MSG_CLIENT_FRAMEBUFFER_UPDATE_REQUEST:
         if (len == 1)
@@ -3145,7 +3195,7 @@ int vnc_display_pw_expire(DisplayState *ds, time_t expires)
 char *vnc_display_local_addr(DisplayState *ds)
 {
     VncDisplay *vs = vnc_display;
-    
+
     return vnc_socket_local_addr("%s:%s", vs->lsock);
 }
 
