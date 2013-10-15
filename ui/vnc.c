@@ -427,6 +427,8 @@ static void framebuffer_update_request(VncState *vs, int incremental,
 static void vnc_refresh(DisplayChangeListener *dcl);
 static int vnc_refresh_server_surface(VncDisplay *vd);
 
+static void write_fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data);
+
 static void vnc_dpy_update(DisplayChangeListener *dcl,
                            int x, int y, int w, int h)
 {
@@ -692,6 +694,12 @@ int vnc_raw_send_framebuffer_update(VncState *vs, int x, int y, int w, int h)
 int vnc_send_framebuffer_update(VncState *vs, int x, int y, int w, int h)
 {
     int n = 0;
+
+    // We're in the middle of processing a command that's supposed to be
+    // synchronised. Allowing an update to slip out right now might violate
+    // that synchronisation.
+    if (vs->sync_fence)
+        return n;
 
     switch(vs->vnc_encoding) {
         case VNC_ENCODING_ZLIB:
@@ -1076,6 +1084,7 @@ void vnc_disconnect_finish(VncState *vs)
         g_free(vs->lossy_rect[i]);
     }
     g_free(vs->lossy_rect);
+    g_free(vs->fence_data);
     g_free(vs);
 }
 
@@ -1392,6 +1401,10 @@ void vnc_client_read(void *opaque)
 
         if (!ret) {
             buffer_advance(&vs->input, len);
+            if (vs->sync_fence) {
+                write_fence(vs, vs->fence_flags, vs->fence_data_len, vs->fence_data);
+                vs->sync_fence = false;
+            }
         } else {
             vs->read_handler_expect = ret;
         }
@@ -1948,13 +1961,40 @@ static void supports_fence(VncState *vs)
 // support.
 static void fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data)
 {
-    if (!(flags & FENCE_FLAG_REQUEST))
+    if (flags & FENCE_FLAG_REQUEST) {
+        if (flags & FENCE_FLAG_SYNC_NEXT) {
+            if (vs->sync_fence)
+                VNC_DEBUG("Fence trying to synchronise another fence");
+
+            vs->sync_fence = true;
+
+            vs->fence_flags = flags & (FENCE_FLAG_BLOCK_BEFORE |
+                                       FENCE_FLAG_BLOCK_AFTER |
+                                       FENCE_FLAG_SYNC_NEXT);
+            vs->fence_data_len = len;
+            g_free(vs->fence_data);
+            if (len > 0) {
+                vs->fence_data = g_malloc0(len * sizeof (uint8_t));
+                memcpy(vs->fence_data, data, len);
+            }
+
+            return;
+        }
+
+        // We handle everything synchronously so we trivially honor these modes
+        flags = flags & (FENCE_FLAG_BLOCK_BEFORE | FENCE_FLAG_BLOCK_AFTER);
+
+        write_fence(vs, flags, len, data);
         return;
+    }
 
-    // We cannot guarantee any synchronisation at this level
-    flags = 0;
-
-    write_fence(vs, flags, len, data);
+    switch (len) {
+        case 0:
+            // Initial dummy fence;
+            break;
+        default:
+            VNC_DEBUG("Fence response of unexpected size received");
+    }
 }
 
 static void set_encodings(VncState *vs, int32_t *encodings, size_t n_encodings)
