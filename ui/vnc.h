@@ -261,6 +261,8 @@ struct VncState
 {
     int csock;
 
+    qemu_timeval last_write;
+
     DECLARE_BITMAP(dirty[VNC_MAX_HEIGHT], VNC_DIRTY_BITS);
     uint8_t **lossy_rect; /* Not an Array to avoid costly memcpy in
                            * vnc-jobs-async.c */

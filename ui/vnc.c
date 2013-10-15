@@ -1244,6 +1244,8 @@ static void vnc_client_write_locked(void *opaque)
             vnc_client_write_plain(vs);
         }
     }
+
+    qemu_gettimeofday(&vs->last_write);
 }
 
 void vnc_client_write(void *opaque)
@@ -1921,6 +1923,26 @@ static void send_ext_audio_ack(VncState *vs)
                            VNC_ENCODING_AUDIO);
     vnc_unlock_output(vs);
     vnc_flush(vs);
+}
+
+static unsigned int ms_since(const qemu_timeval *then)
+{
+    qemu_timeval now;
+    unsigned int diff;
+
+    qemu_gettimeofday(&now);
+
+    diff = (now.tv_sec - then->tv_sec) * 1000;
+
+    diff += now.tv_usec / 1000;
+    diff -= then->tv_usec / 1000;
+
+    return diff;
+}
+
+static unsigned int get_idle_time(VncState *vs)
+{
+  return ms_since(&vs->last_write);
 }
 
 // write_fence() sends a new fence request or response to the client.
