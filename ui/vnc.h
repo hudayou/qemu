@@ -119,6 +119,14 @@ struct VncRectStat
 
 typedef struct VncRectStat VncRectStat;
 
+struct RTTInfo {
+  qemu_timeval tv;
+  int offset;
+  unsigned in_flight;
+};
+
+typedef struct RTTInfo RTTInfo;
+
 struct VncSurface
 {
     struct timeval last_freq_check;
@@ -321,6 +329,15 @@ struct VncState
     uint32_t fence_flags;
     uint8_t fence_data_len;
     uint8_t *fence_data;
+
+    unsigned base_rtt;
+    unsigned cong_window;
+    int acked_offset, sent_offset;
+
+    unsigned min_rtt;
+    bool seen_congestion;
+    unsigned ping_counter;
+    struct QEMUTimer *congestion_timer;
 
     VncReadEvent *read_handler;
     size_t read_handler_expect;

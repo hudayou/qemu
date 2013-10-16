@@ -40,6 +40,18 @@
 static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
 static const struct timeval VNC_REFRESH_LOSSY = { 2, 0 };
 
+// This window should get us going fairly fast on a decent bandwidth network.
+// If it's too high, it will rapidly be reduced and stay low.
+static const unsigned INITIAL_WINDOW = 16384;
+
+// TCP's minimal window is 3*MSS. But since we don't know the MSS, we
+// make a guess at 4 KiB (it's probaly a bit higher).
+static const unsigned MINIMUM_WINDOW = 4096;
+
+// The current default maximum window for Linux (4 MiB). Should be a good
+// limit for now...
+static const unsigned MAXIMUM_WINDOW = 4194304;
+
 #include "vnc_keysym.h"
 #include "d3des.h"
 
@@ -428,6 +440,9 @@ static void vnc_refresh(DisplayChangeListener *dcl);
 static int vnc_refresh_server_surface(VncDisplay *vd);
 
 static void write_fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data);
+static void update_congestion(void *opaque);
+static bool is_congested(VncState *vs);
+static void write_rtt_ping(VncState *vs);
 
 static void vnc_dpy_update(DisplayChangeListener *dcl,
                            int x, int y, int w, int h)
@@ -695,12 +710,6 @@ int vnc_send_framebuffer_update(VncState *vs, int x, int y, int w, int h)
 {
     int n = 0;
 
-    // We're in the middle of processing a command that's supposed to be
-    // synchronised. Allowing an update to slip out right now might violate
-    // that synchronisation.
-    if (vs->sync_fence)
-        return n;
-
     switch(vs->vnc_encoding) {
         case VNC_ENCODING_ZLIB:
             n = vnc_zlib_send_framebuffer_update(vs, x, y, w, h);
@@ -905,6 +914,20 @@ static int vnc_update_client(VncState *vs, int has_dirty)
         if (!has_dirty && !vs->audio_cap && !vs->force_update)
             return 0;
 
+        // We're in the middle of processing a command that's supposed to be
+        // synchronised. Allowing an update to slip out right now might violate
+        // that synchronisation.
+        if (vs->sync_fence)
+            return 0;
+
+        // Check that we actually have some space on the link and retry in a
+        // bit if things are congested.
+        if (is_congested(vs)) {
+            return 0;
+        }
+
+        write_rtt_ping(vs);
+
         /*
          * Send screen updates to the vnc client using the server
          * surface and server dirty map.  guest surface updates
@@ -944,6 +967,7 @@ static int vnc_update_client(VncState *vs, int has_dirty)
 
         vnc_job_push(job);
         vs->force_update = 0;
+        write_rtt_ping(vs);
         return n;
     }
 
@@ -1085,6 +1109,11 @@ void vnc_disconnect_finish(VncState *vs)
     }
     g_free(vs->lossy_rect);
     g_free(vs->fence_data);
+    if (vs->congestion_timer != NULL) {
+        qemu_del_timer(vs->congestion_timer);
+        qemu_free_timer(vs->congestion_timer);
+        vs->congestion_timer = NULL;
+    }
     g_free(vs);
 }
 
@@ -1981,6 +2010,37 @@ static void write_end_of_continuous_updates(VncState *vs)
     vnc_flush(vs);
 }
 
+static void write_rtt_ping(VncState *vs)
+{
+    RTTInfo rtt_info;
+
+    if (!vnc_has_feature(vs, VNC_FEATURE_FENCE)) {
+        return;
+    }
+
+    memset(&rtt_info, 0, sizeof(RTTInfo));
+
+    qemu_gettimeofday(&rtt_info.tv);
+    rtt_info.offset = vs->output.offset;
+    rtt_info.in_flight = rtt_info.offset - vs->acked_offset;
+
+    // We need to make sure any old update are already processed by the
+    // time we get the response back. This allows us to reliably throttle
+    // back on client overload, as well as network overload.
+    write_fence(vs, FENCE_FLAG_REQUEST | FENCE_FLAG_BLOCK_BEFORE,
+            sizeof(RTTInfo), (uint8_t *)&rtt_info);
+
+    vs->ping_counter++;
+
+    vs->sent_offset = rtt_info.offset;
+
+    // Let some data flow before we adjust the settings
+    if (vs->congestion_timer == NULL) {
+        vs->congestion_timer = qemu_new_timer_ms(rt_clock, update_congestion, vs);
+        qemu_mod_timer(vs->congestion_timer, qemu_get_clock_ms(rt_clock) + MIN(vs->base_rtt * 2, 100));
+    }
+}
+
 // supports_fence() is called the first time we detect support for fences
 // in the client. A fence message should be sent at this point to notify
 // the client of server support.
@@ -2006,12 +2066,55 @@ static void supports_continuous_updates(VncState *vs)
     write_end_of_continuous_updates(vs);
 }
 
+static void handle_rtt_pong(VncState *vs, const RTTInfo *rtt_info)
+{
+    unsigned rtt, delay;
+
+    vs->ping_counter--;
+
+    rtt = ms_since(&rtt_info->tv);
+    if (rtt < 1)
+        rtt = 1;
+
+    vs->acked_offset = rtt_info->offset;
+
+    // Try to estimate wire latency by tracking lowest seen latency
+    if (rtt < vs->base_rtt)
+        vs->base_rtt = rtt;
+
+    if (rtt_info->in_flight > vs->cong_window) {
+        vs->seen_congestion = true;
+
+        // Estimate added delay because of overtaxed buffers
+        delay = (rtt_info->in_flight - vs->cong_window) * vs->base_rtt / vs->cong_window;
+
+        if (delay < rtt)
+            rtt -= delay;
+        else
+            rtt = 1;
+
+        // If we underestimate the congestion window, then we'll get a latency
+        // that's less than the wire latency, which will confuse other portions
+        // of the code.
+        if (rtt < vs->base_rtt)
+            rtt = vs->base_rtt;
+    }
+
+    // We only keep track of the minimum latency seen (for a given interval)
+    // on the basis that we want to avoid continous buffer issue, but don't
+    // mind (or even approve of) bursts.
+    if (rtt < vs->min_rtt)
+        vs->min_rtt = rtt;
+}
+
 // fence() is called when we get a fence request or response. By default
 // it responds directly to requests (stating it doesn't support any
 // synchronisation) and drops responses. Override to implement more proper
 // support.
 static void fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data)
 {
+    RTTInfo rtt_info;
+
     if (flags & FENCE_FLAG_REQUEST) {
         if (flags & FENCE_FLAG_SYNC_NEXT) {
             if (vs->sync_fence)
@@ -2043,6 +2146,10 @@ static void fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data)
         case 0:
             // Initial dummy fence;
             break;
+        case sizeof(RTTInfo):
+            memcpy(&rtt_info, data, sizeof(RTTInfo));
+            handle_rtt_pong(vs, &rtt_info);
+            break;
         default:
             VNC_DEBUG("Fence response of unexpected size received");
     }
@@ -2052,6 +2159,139 @@ static void fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data)
 // or disable continuous updates, or change the active area.
 static void enable_continuous_updates(VncState *vs, bool enable, int x, int y, int w, int h)
 {
+    if (!vnc_has_feature(vs, VNC_FEATURE_FENCE))
+        return;
+    if (!vnc_has_feature(vs, VNC_FEATURE_CONTINUOUS_UPDATES))
+        return;
+    if (enable) {
+        int i;
+        const size_t width = surface_width(vs->vd->ds) / VNC_BLOCK_SIZE;
+        const size_t height = surface_height(vs->vd->ds);
+
+        if (y > height) {
+            y = height;
+        }
+        if (y + h >= height) {
+            h = height - y;
+        }
+
+        vs->need_update = 1;
+        vs->force_update = 1;
+        for (i = 0; i < h; i++) {
+            bitmap_set(vs->dirty[y + i], 0, width);
+            bitmap_clear(vs->dirty[y + i], width,
+                    VNC_DIRTY_BITS - width);
+        }
+    } else {
+       write_end_of_continuous_updates(vs);
+    }
+}
+
+static bool is_congested(VncState *vs)
+{
+    int offset;
+
+    // Stuff still waiting in the send buffer?
+    if (vs->output.offset)
+        return true;
+
+    if (!vnc_has_feature(vs, VNC_FEATURE_FENCE))
+        return false;
+
+    // Idle for too long? (and no data on the wire)
+    //
+    // FIXME: This should really just be one base_rtt, but we're getting
+    //        problems with triggering the idle timeout on each update.
+    //        Maybe we need to use a moving average for the wire latency
+    //        instead of base_rtt.
+    if ((vs->sent_offset == vs->acked_offset) &&
+            (get_idle_time(vs) > 2 * vs->base_rtt)) {
+
+        if (vs->cong_window > INITIAL_WINDOW)
+            VNC_DEBUG("Reverting to initial window (%d KiB) after %d ms\n",
+                    INITIAL_WINDOW / 1024, get_idle_time(vs));
+
+        // Close congestion window and allow a transfer
+        // FIXME: Reset baseRTT like Linux Vegas?
+        vs->cong_window = MIN(INITIAL_WINDOW, vs->cong_window);
+
+        return false;
+    }
+
+    offset = vs->output.offset;
+
+    // FIXME: Should we compensate for non-update data?
+    //        (i.e. use sent_offset instead of offset)
+    if ((offset - vs->acked_offset) < vs->cong_window)
+        return false;
+
+    // If we just have one outstanding "ping", that means the client has
+    // started receiving our update. In order to not regress compared to
+    // before we had congestion avoidance, we allow another update here.
+    // This could further clog up the tubes, but congestion control isn't
+    // really working properly right now anyway as the wire would otherwise
+    // be idle for at least RTT/2.
+    if (vs->ping_counter == 1)
+        return false;
+
+    return true;
+}
+
+static void update_congestion(void *opaque)
+{
+    VncState *vs = opaque;
+    unsigned diff;
+
+    if (!vs->seen_congestion)
+        goto out;
+
+    diff = vs->min_rtt - vs->base_rtt;
+
+    if (diff > MIN(100, vs->base_rtt)) {
+        // Way too fast
+        vs->cong_window = vs->cong_window * vs->base_rtt / vs->min_rtt;
+    } else if (diff > MIN(50, vs->base_rtt / 2)) {
+        // Slightly too fast
+        vs->cong_window -= 4096;
+    } else if (diff < 5) {
+        // Way too slow
+        vs->cong_window += 8192;
+    } else if (diff < 25) {
+        // Too slow
+        vs->cong_window += 4096;
+    }
+
+    if (vs->cong_window < MINIMUM_WINDOW)
+        vs->cong_window = MINIMUM_WINDOW;
+    if (vs->cong_window > MAXIMUM_WINDOW)
+        vs->cong_window = MAXIMUM_WINDOW;
+
+    VNC_DEBUG("RTT: %d ms (%d ms), Window: %d KiB, Bandwidth: %g Mbps\n",
+            vs->min_rtt, vs->base_rtt, vs->cong_window / 1024,
+            vs->cong_window * 8.0 / vs->base_rtt / 1000.0);
+
+#ifdef TCP_INFO
+    struct tcp_info tcp_info;
+    socklen_t tcp_info_length;
+
+    tcp_info_length = sizeof(tcp_info);
+    if (getsockopt(vs->csock, SOL_TCP, TCP_INFO,
+                (void *)&tcp_info, &tcp_info_length) == 0) {
+        VNC_DEBUG("Socket: RTT: %d ms (+/- %d ms) Window %d KiB\n",
+                tcp_info.tcpi_rtt / 1000, tcp_info.tcpi_rttvar / 1000,
+                tcp_info.tcpi_snd_mss * tcp_info.tcpi_snd_cwnd / 1024);
+    }
+#endif
+
+    vs->min_rtt = -1;
+    vs->seen_congestion = false;
+
+out:
+    if (vs->congestion_timer != NULL) {
+        qemu_del_timer(vs->congestion_timer);
+        qemu_free_timer(vs->congestion_timer);
+        vs->congestion_timer = NULL;
+    }
 }
 
 static void set_encodings(VncState *vs, int32_t *encodings, size_t n_encodings)
@@ -2499,6 +2739,10 @@ static int protocol_client_init(VncState *vs, uint8_t *data, size_t len)
     vnc_qmp_event(vs, QEVENT_VNC_INITIALIZED);
 
     vnc_read_when(vs, protocol_client_msg, 1);
+
+    // - Bootstrap the congestion control
+    vs->acked_offset = vs->output.offset;
+    vs->cong_window = INITIAL_WINDOW;
 
     return 0;
 }
@@ -2979,6 +3223,11 @@ static void vnc_connect(VncDisplay *vd, int csock,
     for (i = 0; i < VNC_STAT_ROWS; ++i) {
         vs->lossy_rect[i] = g_malloc0(VNC_STAT_COLS * sizeof (uint8_t));
     }
+
+    vs->base_rtt = vs->min_rtt  = -1,
+    vs->seen_congestion = false,
+    vs->ping_counter = vs->acked_offset = 0;
+    vs->sent_offset = vs->cong_window = 0;
 
     VNC_DEBUG("New client on socket %d\n", csock);
     update_displaychangelistener(&vd->dcl, VNC_REFRESH_INTERVAL_BASE);
