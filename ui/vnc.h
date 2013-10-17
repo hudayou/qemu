@@ -325,6 +325,7 @@ struct VncState
     CaptureVoiceOut *audio_cap;
     struct audsettings as;
 
+    bool pending_sync_fence;
     bool sync_fence;
     uint32_t fence_flags;
     uint8_t fence_data_len;

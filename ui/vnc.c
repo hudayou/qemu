@@ -1434,6 +1434,11 @@ void vnc_client_read(void *opaque)
         size_t len = vs->read_handler_expect;
         int ret;
 
+        if (vs->pending_sync_fence) {
+            vs->sync_fence = true;
+            vs->pending_sync_fence = false;
+        }
+
         ret = vs->read_handler(vs, vs->input.buffer, len);
         if (vs->csock == -1) {
             vnc_disconnect_finish(vs);
@@ -2130,10 +2135,7 @@ static void fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data)
 
     if (flags & FENCE_FLAG_REQUEST) {
         if (flags & FENCE_FLAG_SYNC_NEXT) {
-            if (vs->sync_fence)
-                VNC_DEBUG("Fence trying to synchronise another fence");
-
-            vs->sync_fence = true;
+            vs->pending_sync_fence = true;
 
             vs->fence_flags = flags & (FENCE_FLAG_BLOCK_BEFORE |
                                        FENCE_FLAG_BLOCK_AFTER |
