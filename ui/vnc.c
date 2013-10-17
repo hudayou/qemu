@@ -1997,6 +1997,19 @@ static void write_fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data
 {
     char pad[3] = { 0, 0, 0 };
 
+    if (!vnc_has_feature(vs, VNC_FEATURE_FENCE)) {
+        VNC_DEBUG("Server does not support fences");
+        return;
+    }
+    if (len > 64) {
+        VNC_DEBUG("Too large fence payload");
+        return;
+    }
+    if ((flags & ~FENCE_FLAGS_SUPPORTED) != 0) {
+        VNC_DEBUG("Unknown fence flags");
+        return;
+    }
+
     vnc_lock_output(vs);
 
     vnc_write_u8(vs, VNC_MSG_SERVER_FENCE);
