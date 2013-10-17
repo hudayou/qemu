@@ -2030,6 +2030,7 @@ static void write_fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data
 static void write_end_of_continuous_updates(VncState *vs)
 {
     if (!vnc_has_feature(vs, VNC_FEATURE_CONTINUOUS_UPDATES)) {
+        VNC_DEBUG("Client does not support continuous updates");
         return;
     }
 
