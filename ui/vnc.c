@@ -3239,6 +3239,12 @@ static void vnc_connect(VncDisplay *vd, int csock,
         vs->lossy_rect[i] = g_malloc0(VNC_STAT_COLS * sizeof (uint8_t));
     }
 
+    vs->pending_sync_fence = false;
+    vs->sync_fence = false;
+    vs->fence_flags = 0;
+    vs->fence_data_len = 0;
+    vs->fence_data = NULL;
+
     vs->base_rtt = vs->min_rtt  = -1,
     vs->seen_congestion = false,
     vs->ping_counter = vs->acked_offset = 0;
