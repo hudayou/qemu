@@ -1420,6 +1420,10 @@ void vnc_client_read(void *opaque)
         return;
     }
 
+    // Get the underlying TCP layer to build large packets if we send
+    // multiple small responses.
+    socket_set_cork(vs->csock, 1);
+
     while (vs->read_handler && vs->input.offset >= vs->read_handler_expect) {
         size_t len = vs->read_handler_expect;
         int ret;
@@ -1440,6 +1444,9 @@ void vnc_client_read(void *opaque)
             vs->read_handler_expect = ret;
         }
     }
+
+    // Flush out everything in case we go idle after this.
+    socket_set_cork(vs->csock, 0);
 }
 
 void vnc_write(VncState *vs, const void *data, size_t len)
