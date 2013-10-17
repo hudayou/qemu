@@ -926,6 +926,11 @@ static int vnc_update_client(VncState *vs, int has_dirty)
             return 0;
         }
 
+        // In continuous mode, we will be outputting at least three distinct
+        // messages. We need to aggregate these in order to not clog up TCP's
+        // congestion window.
+        socket_set_cork(vs->csock, 1);
+
         write_rtt_ping(vs);
 
         /*
@@ -968,6 +973,7 @@ static int vnc_update_client(VncState *vs, int has_dirty)
         vnc_job_push(job);
         vs->force_update = 0;
         write_rtt_ping(vs);
+        socket_set_cork(vs->csock, 0);
         return n;
     }
 
