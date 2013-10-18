@@ -59,6 +59,7 @@ typedef struct Buffer
 {
     size_t capacity;
     size_t offset;
+    size_t past;
     uint8_t *buffer;
 } Buffer;
 
@@ -585,6 +586,7 @@ void buffer_free(Buffer *buffer);
 void buffer_append(Buffer *buffer, const void *data, size_t len);
 void buffer_advance(Buffer *buf, size_t len);
 uint8_t *buffer_end(Buffer *buffer);
+size_t buffer_length(Buffer *buffer);
 
 
 /* Misc helpers */

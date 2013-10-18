@@ -515,6 +515,7 @@ void buffer_free(Buffer *buffer)
     g_free(buffer->buffer);
     buffer->offset = 0;
     buffer->capacity = 0;
+    buffer->past = 0;
     buffer->buffer = NULL;
 }
 
@@ -529,6 +530,15 @@ void buffer_advance(Buffer *buf, size_t len)
     memmove(buf->buffer, buf->buffer + len,
             (buf->offset - len));
     buf->offset -= len;
+    buf->past += len;
+}
+
+/* imaginary length of the buffer, which is composed of data passed through the
+ * buffer and data remaining in the buffer.
+ */
+size_t buffer_length(Buffer *buffer)
+{
+    return buffer->offset + buffer->past;
 }
 
 static void vnc_desktop_resize(VncState *vs)
