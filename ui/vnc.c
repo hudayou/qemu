@@ -2203,24 +2203,7 @@ static void enable_continuous_updates(VncState *vs, bool enable, int x, int y, i
     if (!vnc_has_feature(vs, VNC_FEATURE_CONTINUOUS_UPDATES))
         return;
     if (enable) {
-        int i;
-        const size_t width = surface_width(vs->vd->ds) / VNC_BLOCK_SIZE;
-        const size_t height = surface_height(vs->vd->ds);
-
-        if (y > height) {
-            y = height;
-        }
-        if (y + h >= height) {
-            h = height - y;
-        }
-
-        vs->need_update = 1;
-        vs->force_update = 1;
-        for (i = 0; i < h; i++) {
-            bitmap_set(vs->dirty[y + i], 0, width);
-            bitmap_clear(vs->dirty[y + i], width,
-                    VNC_DIRTY_BITS - width);
-        }
+        framebuffer_update_request(vs, 0, x, y, w, h);
     } else {
        write_end_of_continuous_updates(vs);
     }
