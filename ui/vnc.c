@@ -2063,7 +2063,7 @@ static void write_rtt_ping(VncState *vs)
     memset(&rtt_info, 0, sizeof(RTTInfo));
 
     qemu_gettimeofday(&rtt_info.tv);
-    rtt_info.offset = vs->output.offset;
+    rtt_info.offset = buffer_length(&vs->output);
     rtt_info.in_flight = rtt_info.offset - vs->acked_offset;
 
     // We need to make sure any old update are already processed by the
@@ -2257,7 +2257,7 @@ static bool is_congested(VncState *vs)
         return false;
     }
 
-    offset = vs->output.offset;
+    offset = buffer_length(&vs->output);
 
     // FIXME: Should we compensate for non-update data?
     //        (i.e. use sent_offset instead of offset)
@@ -2780,7 +2780,7 @@ static int protocol_client_init(VncState *vs, uint8_t *data, size_t len)
     vnc_read_when(vs, protocol_client_msg, 1);
 
     // - Bootstrap the congestion control
-    vs->acked_offset = vs->output.offset;
+    vs->acked_offset = buffer_length(&vs->output);
     vs->cong_window = INITIAL_WINDOW;
 
     return 0;
