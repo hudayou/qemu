@@ -614,6 +614,8 @@ void vnc_convert_pixel(VncState *vs, uint8_t *buf, uint32_t v);
 double vnc_update_freq(VncState *vs, int x, int y, int w, int h);
 void vnc_sent_lossy_rect(VncState *vs, int x, int y, int w, int h);
 
+void write_rtt_ping(VncState *vs);
+
 /* Encodings */
 int vnc_send_framebuffer_update(VncState *vs, int x, int y, int w, int h);
 

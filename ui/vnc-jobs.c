@@ -161,18 +161,28 @@ void vnc_jobs_join(VncState *vs)
 
 void vnc_jobs_consume_buffer(VncState *vs)
 {
-    bool flush;
+    bool flush = vs->csock != -1 && vs->abort != true;
+
+    if (flush) {
+        // In continuous mode, we will be outputting at least three distinct
+        // messages. We need to aggregate these in order to not clog up TCP's
+        // congestion window.
+        socket_set_cork(vs->csock, 1);
+
+        write_rtt_ping(vs);
+    }
 
     vnc_lock_output(vs);
     if (vs->jobs_buffer.offset) {
         vnc_write(vs, vs->jobs_buffer.buffer, vs->jobs_buffer.offset);
         buffer_reset(&vs->jobs_buffer);
     }
-    flush = vs->csock != -1 && vs->abort != true;
     vnc_unlock_output(vs);
 
     if (flush) {
-      vnc_flush(vs);
+        vnc_flush(vs);
+        write_rtt_ping(vs);
+        socket_set_cork(vs->csock, 0);
     }
 }
 

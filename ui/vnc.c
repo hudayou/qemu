@@ -442,7 +442,6 @@ static int vnc_refresh_server_surface(VncDisplay *vd);
 static void write_fence(VncState *vs, uint32_t flags, uint8_t len, uint8_t *data);
 static void update_congestion(void *opaque);
 static bool is_congested(VncState *vs);
-static void write_rtt_ping(VncState *vs);
 
 static void vnc_dpy_update(DisplayChangeListener *dcl,
                            int x, int y, int w, int h)
@@ -936,13 +935,6 @@ static int vnc_update_client(VncState *vs, int has_dirty)
             return 0;
         }
 
-        // In continuous mode, we will be outputting at least three distinct
-        // messages. We need to aggregate these in order to not clog up TCP's
-        // congestion window.
-        socket_set_cork(vs->csock, 1);
-
-        write_rtt_ping(vs);
-
         /*
          * Send screen updates to the vnc client using the server
          * surface and server dirty map.  guest surface updates
@@ -1396,10 +1388,6 @@ static void vnc_jobs_bh(void *opaque)
     VncState *vs = opaque;
 
     vnc_jobs_consume_buffer(vs);
-    if (vs->csock != -1) {
-        write_rtt_ping(vs);
-        socket_set_cork(vs->csock, 0);
-    }
 }
 
 /*
@@ -2054,7 +2042,7 @@ static void write_end_of_continuous_updates(VncState *vs)
     vnc_flush(vs);
 }
 
-static void write_rtt_ping(VncState *vs)
+void write_rtt_ping(VncState *vs)
 {
     RTTInfo rtt_info;
 
