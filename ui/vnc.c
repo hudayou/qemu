@@ -982,8 +982,6 @@ static int vnc_update_client(VncState *vs, int has_dirty)
 
         vnc_job_push(job);
         vs->force_update = 0;
-        write_rtt_ping(vs);
-        socket_set_cork(vs->csock, 0);
         return n;
     }
 
@@ -1398,6 +1396,10 @@ static void vnc_jobs_bh(void *opaque)
     VncState *vs = opaque;
 
     vnc_jobs_consume_buffer(vs);
+    if (vs->csock != -1) {
+        write_rtt_ping(vs);
+        socket_set_cork(vs->csock, 0);
+    }
 }
 
 /*
