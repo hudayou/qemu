@@ -472,6 +472,8 @@ enum {
 #define VNC_FEATURE_LED_STATE               11
 #define VNC_FEATURE_FENCE                   12
 #define VNC_FEATURE_CONTINUOUS_UPDATES      13
+#define VNC_FEATURE_EXT_KEY_EVENT           14
+#define VNC_FEATURE_AUDIO                   15
 
 #define VNC_FEATURE_RESIZE_MASK              (1 << VNC_FEATURE_RESIZE)
 #define VNC_FEATURE_HEXTILE_MASK             (1 << VNC_FEATURE_HEXTILE)
@@ -487,6 +489,8 @@ enum {
 #define VNC_FEATURE_LED_STATE_MASK           (1 << VNC_FEATURE_LED_STATE)
 #define VNC_FEATURE_FENCE_MASK               (1 << VNC_FEATURE_FENCE)
 #define VNC_FEATURE_CONTINUOUS_UPDATES_MASK  (1 << VNC_FEATURE_CONTINUOUS_UPDATES)
+#define VNC_FEATURE_EXT_KEY_EVENT_MASK       (1 << VNC_FEATURE_EXT_KEY_EVENT)
+#define VNC_FEATURE_AUDIO_MASK               (1 << VNC_FEATURE_AUDIO)
 
 
 /* Client -> Server message IDs */

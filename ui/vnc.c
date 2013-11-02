@@ -2367,10 +2367,10 @@ static void set_encodings(VncState *vs, int32_t *encodings, size_t n_encodings)
             vs->features |= VNC_FEATURE_RICH_CURSOR_MASK;
             break;
         case VNC_ENCODING_EXT_KEY_EVENT:
-            send_ext_key_event_ack(vs);
+            vs->features |= VNC_FEATURE_EXT_KEY_EVENT_MASK;
             break;
         case VNC_ENCODING_AUDIO:
-            send_ext_audio_ack(vs);
+            vs->features |= VNC_FEATURE_AUDIO_MASK;
             break;
         case VNC_ENCODING_WMVi:
             vs->features |= VNC_FEATURE_WMVI_MASK;
@@ -2544,6 +2544,11 @@ static int protocol_client_msg(VncState *vs, uint8_t *data, size_t len)
         if (vnc_has_feature(vs, VNC_FEATURE_CONTINUOUS_UPDATES) && first_continuous_updates)
             supports_continuous_updates(vs);
 
+        if (vnc_has_feature(vs, VNC_FEATURE_EXT_KEY_EVENT))
+            send_ext_key_event_ack(vs);
+
+        if (vnc_has_feature(vs, VNC_FEATURE_AUDIO))
+            send_ext_audio_ack(vs);
         break;
     case VNC_MSG_CLIENT_FENCE:
         if (len == 1)
